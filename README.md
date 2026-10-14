@@ -29,7 +29,11 @@ uv run --exact --extra virtualcam gui.py
 
 For a standalone Mac build, unzip **Gazeshift-macOS-arm64.zip**, move **Gazeshift.app** into Applications, and open it. It includes Python, both models and call-output support; launching it needs neither uv nor a network connection. Allow **Gazeshift** under **System Settings → Privacy & Security → Camera**, then press **Start camera**. OBS is still required for video-call output.
 
+[Download the October 14 development build](https://github.com/hirokoyama75/gazeshift/actions/runs/38605237108/artifacts/11914929233) (GitHub sign-in required). Expand the artifact download, then its `Gazeshift-macOS-arm64.zip` to get the app.
+
 Development builds are ad-hoc signed, with camera permission metadata and entitlements. Developer ID signing and Apple notarization are still required before a normal public download release. The local build accepts `GAZESHIFT_CODESIGN_IDENTITY` for an installed signing certificate.
+
+If macOS blocks this development build, use **System Settings → Privacy & Security → Open Anyway** for Gazeshift; see [Apple's app-opening instructions](https://support.apple.com/en-ie/102445).
 
 To run directly from source on Apple Silicon macOS 14+, install uv, open Terminal in this project folder, and run:
 
@@ -120,7 +124,7 @@ The **Build macOS app** GitHub Actions workflow uses an Apple Silicon runner and
 
 The `.app` uses one process, without a browser runtime or per-launch unpacking. Its processing pipeline, model precision, latest-frame queues and correction limits are unchanged. The interface polls at 4 Hz while stopped and skips preview rendering while minimized; call output continues normally. On macOS, ONNX workers sleep between inference calls while retaining fast scheduling within each run. Compiled Core ML caches live in `~/Library/Caches/Gazeshift`, outside the signed app. Preferences remain in `~/.gaze_cam/`. The native Quit command uses the same camera cleanup as closing the window.
 
-On the shared M1 macOS 14 runner, the normal packaged interface with its camera off measured **0.20% of one CPU core and 109 MiB RSS** over five seconds after a ten-second startup warmup. This measures idle use only. The workflow also reports paced synthetic inference with different worker wait policies; it does not measure whole-pipeline camera FPS, battery use, or electrical power.
+On the shared M1 macOS 14 runner, the normal packaged interface with its camera off measured **0.20% of one CPU core and 109 MiB RSS** over five seconds after a ten-second startup warmup. This measures idle use only. In a separate 90-frame synthetic inference test paced at 30 FPS, sleeping workers between calls reduced CPU time by about **14%** versus the default wait policy (151% → 130% of one core), with delivery rates of 29.3 versus 29.9 FPS. Shared-runner timings vary; this does not establish whole-pipeline camera FPS, battery use, or electrical power. Both CPU and Core ML passed the packaged synthetic consistency checks; original TensorFlow parity was checked separately by the Windows headless verifier.
 
 A separate RX 6600 XT benchmark measured **0.95 ms p95** dual-eye DirectML inference versus **7.00 ms** CPU (ORT 1.24.4, 50 warmups / 500 runs). All eight real-data/angle-sweep comparisons passed the unchanged TensorFlow accuracy limit; profiling confirmed GPU execution. This does not establish live FPS or power consumption. Synthetic 720p two-eye compositing improved from **13.22 to 5.02 ms median**, with identical pixels in that benchmark. No model weights or correction limits changed.
 
