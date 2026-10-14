@@ -1,13 +1,47 @@
-"""Read DirectShow camera names without opening a video stream."""
+"""Read native camera names without opening a video stream or requesting access."""
 import ctypes
 import platform
 import uuid
 
 
+def mac_cameras():
+    ctypes.CDLL("/System/Library/Frameworks/AVFoundation.framework/AVFoundation")
+    objc = ctypes.CDLL("/usr/lib/libobjc.A.dylib")
+    objc.objc_getClass.argtypes = [ctypes.c_char_p]
+    objc.objc_getClass.restype = ctypes.c_void_p
+    objc.sel_registerName.argtypes = [ctypes.c_char_p]
+    objc.sel_registerName.restype = ctypes.c_void_p
+    def send(receiver, selector, result=ctypes.c_void_p, types=(), values=()):
+        function = ctypes.CFUNCTYPE(result, ctypes.c_void_p, ctypes.c_void_p, *types)(
+            ctypes.cast(objc.objc_msgSend, ctypes.c_void_p).value)
+        return function(receiver, objc.sel_registerName(selector), *values)
+    pool = send(objc.objc_getClass(b"NSAutoreleasePool"), b"new")
+    try:
+        def media_devices(media_type):
+            media = send(objc.objc_getClass(b"NSString"), b"stringWithUTF8String:",
+                         types=(ctypes.c_char_p,), values=(media_type,))
+            return send(objc.objc_getClass(b"AVCaptureDevice"), b"devicesWithMediaType:",
+                        types=(ctypes.c_void_p,), values=(media,))
+        # This order matches OpenCV's AVFoundation camera indices.
+        devices = send(media_devices(b"vide"), b"arrayByAddingObjectsFromArray:",
+                       types=(ctypes.c_void_p,), values=(media_devices(b"muxx"),))
+        cameras = []
+        for index in range(send(devices, b"count", ctypes.c_ulong)):
+            device = send(devices, b"objectAtIndex:", types=(ctypes.c_ulong,), values=(index,))
+            name = send(send(device, b"localizedName"), b"UTF8String", ctypes.c_char_p)
+            label = name.decode("utf-8") if name else f"Camera {index}"
+            if "obs virtual camera" not in label.casefold():
+                cameras.append((index, label))
+        return cameras
+    finally:
+        send(pool, b"drain", None)
+
+
 def list_cameras():
+    if platform.system() == "Darwin":
+        return mac_cameras()
     if platform.system() != "Windows":
-        # shortcut: generic indices on macOS; use native names when adding a Mac launcher.
-        return [(i, f"Camera {i}") for i in range(4)]
+        raise RuntimeError("Supported platforms are Windows and macOS")
     ole = ctypes.OleDLL("ole32")
     auto = ctypes.OleDLL("oleaut32")
     guid = lambda value: (ctypes.c_ubyte * 16).from_buffer_copy(uuid.UUID(value).bytes_le)

@@ -1,5 +1,6 @@
 """MediaPipe Tasks VIDEO adapter; raw iris is accessed only during Calibration."""
 from dataclasses import dataclass
+import sys
 import numpy as np
 import cv2
 from engine.geometry import rotate_offset
@@ -54,6 +55,8 @@ class LandmarkTracker:
             import mediapipe as mp
             self.mp = mp
             task = ROOT / "weights/face_landmarker.task"
+            if getattr(sys, "frozen", False) and not task.is_file():
+                raise RuntimeError("The bundled face model is missing. Reinstall Gazeshift.app.")
             fetch("https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task", task)
             options = mp.tasks.vision.FaceLandmarkerOptions(
                 base_options=mp.tasks.BaseOptions(model_asset_path=str(task)),

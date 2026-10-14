@@ -14,7 +14,9 @@ def test_desktop_window_controls_and_lifecycle(tmp_path,monkeypatch):
             self.settings=settings
             self.events,self.frames,self.commands=queue.Queue(),queue.Queue(),queue.Queue()
             workers.append(self)
-        def start(self):self.events.put(('started',False))
+        def start(self):
+            self.events.put(('provider', ('dml', {'dml': 1000})))
+            self.events.put(('started',False))
         def stop(self):self.events.put(('stopped',None))
     real_window=tk.Toplevel
     class HiddenWindow(real_window):
@@ -52,9 +54,11 @@ def test_desktop_window_controls_and_lifecycle(tmp_path,monkeypatch):
             root.after_cancel(app.poll_job)
             app.poll()
             root.update_idletasks()
+        app.provider.set('Automatic')
         app.start_button.invoke();poll()
         worker=workers[0]
         assert app.worker is worker and app.status.get()=='Camera running'
+        assert worker.settings.provider == 'auto' and app.active_provider == 'AMD / Intel GPU'
         assert app.camera_menu.instate(['disabled'])
         app.amount.set(150);app.controls_changed()
         assert list(worker.commands.queue)[-1][1].amount==1.5
@@ -64,8 +68,17 @@ def test_desktop_window_controls_and_lifecycle(tmp_path,monkeypatch):
         corrected=np.full((2,4,3),200,np.uint8)
         app.original.set(True);app.show_frame((raw,corrected,True,30.,0,0))
         assert app.photo.get(0,0)==(10,10,10)
+        previous_photo = app.photo
         app.original.set(False);app.show_frame((raw,corrected,True,30.,0,0))
         assert app.photo.get(0,0)==(200,200,200)
+        assert app.photo is previous_photo
+        assert 'Automatic' in app.providers
+        assert 'AMD / Intel GPU' in app.stats.get() and 'Automatic' not in app.stats.get()
+        with monkeypatch.context() as patch:
+            patch.setattr(root, 'state', lambda: 'iconic')
+            worker.frames.put((raw,raw,True,30.,0,0))
+            poll()
+            assert worker.frames.empty() and app.photo.get(0,0)==(200,200,200)
         worker.events.put(('calibration',('lens','Look at the lens')));poll()
         assert app.calibration_window.winfo_rootx()==-1280
         worker.events.put(('calibration',('screen','Look at the crosshair')));poll()
@@ -80,6 +93,7 @@ def test_desktop_window_controls_and_lifecycle(tmp_path,monkeypatch):
         app.save()
         assert load_settings(tmp_path/'desktop.json').correction.amount==1.
         assert load_settings(tmp_path/'desktop.json').theme=='dark'
+        assert load_settings(tmp_path/'desktop.json').provider == 'auto'
     finally:
         if app:
             app.hide_calibration()

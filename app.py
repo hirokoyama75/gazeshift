@@ -38,7 +38,7 @@ def main(argv=None, clock=time.monotonic):
     provider = args.provider
     if provider is None:
         provider, timings = choose_provider()
-        print(f"Provider probe (20 runs each, ns): {timings}")
+        print(f"Provider probe (10 warmups, 20 timed runs, p95 ns): {timings}")
         # Persist provider without changing the resolution-independent focal length.
         save_config(args.config, replace(load_config(args.config), provider=provider))
         geometry = replace(geometry, provider=provider)

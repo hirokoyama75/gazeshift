@@ -24,10 +24,16 @@ REQUIRED = {
     "m1": ["test_zero_strength_exact_and_inference_bypass", "test_complete_coordinate_fade_and_rolled_fractional_crops",
            "test_production_against_real_tf_interior", "test_rolled_sampling_map_against_independent_frame_bilinear", "test_one_euro_stationary_variance", "test_blink_shared_min_immediate_close_linear_reopen"],
     "m2": ["test_real_cpu_benchmark", "test_dshow_order_latest_frame_and_bounded_shutdown", "test_injected_720p_pipeline_and_cleanup", "test_tracker_rgb_raw_blink_and_calibration_only_iris", "test_projected_head_pose_matches_screen_facing_direction", "test_cli_calibration_keys_persistence_and_clean_output",
-           "test_desktop_correction_controls", "test_desktop_settings_roundtrip", "test_desktop_worker_controls_and_cleanup", "test_desktop_worker_failure_paths", "test_desktop_worker_calibration"],
+           "test_desktop_correction_controls", "test_desktop_settings_roundtrip", "test_desktop_worker_controls_and_cleanup", "test_desktop_worker_failure_paths", "test_desktop_worker_calibration",
+           "test_cuda_full_precision_and_fallback_rejection", "test_coreml_static_precision_and_content_cache",
+           "test_provider_probe_warmup_and_cpu_fallback", "test_desktop_auto_uses_resolved_provider",
+           "test_mac_camera_names_match_opencv_indices", "test_avfoundation_capture_and_cleanup",
+           "test_provider_benchmark_reference_and_failure_report", "test_frozen_mac_cache_outside_bundle",
+           "test_frozen_missing_face_model_never_downloads", "test_mac_builder_platform_and_model_integrity",
+           "test_bundle_failure_writes_report_without_camera"],
     "m3": ["test_independent_two_look_recovery", "test_failures_preserve_config_bytes", "test_three_degree_wrapped_boundary_and_secondary_monitor", "test_screen_relative_pose_cone"],
 }
-MIN_COUNTS = {"m0": 4, "m1": 6, "m2": 15, "m3": 24}
+MIN_COUNTS = {"m0": 4, "m1": 6, "m2": 26, "m3": 24}
 MANUAL = ["Windows and macOS physical camera / OBS selection", "720p sustained >=30 fps",
           "capture-to-output p95 <33 ms", "visual eye / blink / seam quality", "real-subject Calibration accuracy", "RSS after 60 seconds"]
 
@@ -209,7 +215,7 @@ def main(argv=None):
             stage = milestone
             junit = directory / f"{milestone}.xml"
             command = [sys.executable, "-m", "pytest", f"tests/headless/test_{milestone}.py", "-q", "--basetemp", str(directory / f"tmp_{milestone}"), "--junitxml", str(junit)]
-            if milestone == "m2": command.append("tests/headless/test_desktop.py")
+            if milestone == "m2": command.extend(["tests/headless/test_desktop.py", "tests/headless/test_providers.py", "tests/headless/test_packaging.py"])
             child_error = None
             try:
                 report["stages"][stage] = run_child(command, stage, deadline, directory, env)

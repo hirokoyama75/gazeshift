@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 import queue
 import tkinter as tk
+from tkinter.font import nametofont
 from tkinter import ttk
 
 import cv2
@@ -13,18 +14,19 @@ from utils.desktop import DesktopSettings, DesktopWorker, load_settings, save_se
 from utils.monitors import enable_dpi_awareness, get_monitors, choose_monitor
 
 THEMES = {
-    "dark": dict(app="#0c111b", panel="#141e2d", field="#202d42", text="#edf3fd",
-                 muted="#a4b4cc", accent="#98baff", primary="#426fe5", hover="#315fce",
-                 border="#2b3b53", danger="#ffb69f", preview="#080d15"),
-    "light": dict(app="#f0f4fa", panel="#ffffff", field="#edf2fa", text="#172538",
-                  muted="#536780", accent="#315ed1", primary="#315ed1", hover="#244db7",
-                  border="#d4dfed", danger="#9f351e", preview="#101826"),
+    "dark": dict(app="#111113", panel="#1b1b1f", field="#28282f", text="#f4f4f5",
+                 muted="#aaaab5", accent="#b6b2ff", primary="#6258d5", hover="#746ae5",
+                 border="#36363f", danger="#ffb69f", preview="#09090b"),
+    "light": dict(app="#f5f5f7", panel="#ffffff", field="#eeeef3", text="#222229",
+                  muted="#666674", accent="#564bc0", primary="#6258d5", hover="#5147bd",
+                  border="#dddde5", danger="#9f351e", preview="#101013"),
 }
 
 
 class Desktop:
     def __init__(self, root, settings_path, config_path, provider=None):
         self.root, self.settings_path, self.config_path = root, settings_path, config_path
+        self.font = nametofont("TkDefaultFont", root=root).actual("family")
         self.worker, self.calibration_window, self.save_job = None, None, None
         self.closing, self.failed, self.photo = False, False, None
         warning = ""
@@ -34,13 +36,17 @@ class Desktop:
             settings = DesktopSettings()
             warning = "Saved controls could not be loaded; using defaults. " + str(error)
         self.camera = tk.StringVar(value=str(settings.camera))
-        self.providers = {"CPU": "cpu"}
+        self.providers = {"Automatic": "auto", "CPU": "cpu"}
         for label, key, ep in (("AMD / Intel GPU", "dml", "DmlExecutionProvider"),
                                      ("NVIDIA GPU", "cuda", "CUDAExecutionProvider"),
-                                     ("Apple GPU", "coreml", "CoreMLExecutionProvider")):
+                                     ("Apple Core ML", "coreml", "CoreMLExecutionProvider")):
             if ep in ort.get_available_providers(): self.providers[label] = key
-        selected = next((label for label, key in self.providers.items() if key == (provider or settings.provider)), "CPU")
+        preferred = provider or (settings.provider if Path(settings_path).exists() else "auto")
+        selected = next((label for label, key in self.providers.items() if key == preferred), "Automatic")
         self.provider = tk.StringVar(value=selected)
+        self.active_provider = selected
+        if selected == "Automatic" and preferred != "auto":
+            warning = f"Saved processing option {preferred} is unavailable; Automatic will compare installed options."
         self.theme = tk.StringVar(value=settings.theme.title())
         self.virtual = tk.BooleanVar(value=settings.virtual_camera)
         self.mirror = tk.BooleanVar(value=settings.mirror)
@@ -63,7 +69,7 @@ class Desktop:
         header = ttk.Frame(root, style="App.TFrame")
         header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=26, pady=(22, 16))
         ttk.Label(header, text="gazeshift", style="Brand.TLabel").pack(side="left")
-        ttk.Label(header, text="Camera preview & correction", style="Subtitle.TLabel").pack(side="left", padx=20)
+        ttk.Label(header, text="A more natural connection", style="Subtitle.TLabel").pack(side="left", padx=20)
         self.theme_menu = ttk.Combobox(header, textvariable=self.theme, values=("Dark", "Light"), state="readonly", width=7)
         self.theme_menu.pack(side="right")
         self.theme_menu.bind("<<ComboboxSelected>>", lambda event: self.change_theme())
@@ -71,7 +77,7 @@ class Desktop:
         controls = ttk.Frame(root, padding=20)
         controls.grid(row=1, column=0, sticky="ns", padx=(26, 16))
         controls.columnconfigure(0, weight=1)
-        ttk.Label(controls, text="YOUR CAMERA", font=("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky="w")
+        ttk.Label(controls, text="CAMERA", font=(self.font, 10, "bold")).grid(row=0, column=0, sticky="w")
         camera_row = ttk.Frame(controls)
         camera_row.grid(row=1, column=0, sticky="ew", pady=(8, 12))
         self.camera_menu = ttk.Combobox(camera_row, textvariable=self.camera, state="readonly", width=27)
@@ -84,13 +90,13 @@ class Desktop:
         tabs.grid(row=3, column=0, sticky="nsew")
         adjustments, setup = ttk.Frame(tabs, padding=12), ttk.Frame(tabs, padding=12)
         tabs.add(adjustments, text="Correction")
-        tabs.add(setup, text="Call output & setup")
+        tabs.add(setup, text="Setup")
         adjustments.columnconfigure(0, weight=1)
         setup.columnconfigure(0, weight=1)
         ttk.Checkbutton(adjustments, text="Eye correction", variable=self.enabled, command=self.toggle_correction).grid(row=0, column=0, sticky="w", pady=8)
         self.slider(adjustments, 1, "Strength", self.amount, 0, 150, "%")
-        self.slider(adjustments, 3, "Horizontal aim · left / right", self.horizontal, -10, 10, "°")
-        self.slider(adjustments, 5, "Vertical aim · up / down", self.vertical, -10, 10, "°")
+        self.slider(adjustments, 3, "Left / right", self.horizontal, -10, 10, "°")
+        self.slider(adjustments, 5, "Up / down", self.vertical, -10, 10, "°")
         ttk.Label(adjustments, text="100% is the original correction.\nAim fine-tunes both eyes; it doesn't\nlock your gaze. Angle limits still apply.", style="Muted.TLabel").grid(row=7, column=0, sticky="w", pady=(6, 12))
         ttk.Button(adjustments, text="Reset adjustments", command=self.reset).grid(row=8, column=0, sticky="ew", pady=(0, 8))
         self.calibrate_button = ttk.Button(adjustments, text="Calibrate · two quick looks", command=self.calibrate, state="disabled")
@@ -101,7 +107,7 @@ class Desktop:
         self.virtual_check = ttk.Checkbutton(setup, text="Send video to call apps", variable=self.virtual, command=self.save_soon)
         self.virtual_check.grid(row=2, column=0, sticky="w")
         ttk.Label(setup, text="Choose OBS Virtual Camera in your\ncall app. Leave OBS's own virtual-\ncamera output stopped.", style="Muted.TLabel").grid(row=3, column=0, sticky="w", pady=(6, 18))
-        ttk.Label(setup, text="Close other apps using your webcam.\nStop before changing camera or output.\n\nThe AMD GPU launcher enables Radeon\nprocessing without changing CPU setup.", style="Muted.TLabel").grid(row=4, column=0, sticky="w")
+        ttk.Label(setup, text="Automatic compares available options\nand chooses the fastest.\n\nStop the camera before changing\nprocessing or call output.", style="Muted.TLabel").grid(row=4, column=0, sticky="w")
         self.device_controls = [self.camera_menu, self.provider_menu, self.refresh_button, self.virtual_check]
         self.camera_menu.bind("<<ComboboxSelected>>", lambda event: self.save_soon())
         self.provider_menu.bind("<<ComboboxSelected>>", lambda event: self.save_soon())
@@ -111,9 +117,9 @@ class Desktop:
         viewer.rowconfigure(1, weight=1)
         top = ttk.Frame(viewer)
         top.grid(row=0, column=0, sticky="ew", pady=(0, 12))
-        ttk.Label(top, text="LIVE PREVIEW", font=("Segoe UI", 10, "bold")).pack(side="left")
+        ttk.Label(top, text="PREVIEW", font=(self.font, 10, "bold")).pack(side="left")
         ttk.Label(top, textvariable=self.stats, style="Muted.TLabel").pack(side="right")
-        self.preview = tk.Label(viewer, text="Your preview will appear here\n\nPress Start camera to begin", font=("Segoe UI", 14),
+        self.preview = tk.Label(viewer, text="Your camera is ready\n\nStart camera to see your preview", font=(self.font, 14),
                                 bg="#172633", fg="#d5e2ec", anchor="center")
         self.preview.grid(row=1, column=0, sticky="nsew")
         bottom = ttk.Frame(viewer)
@@ -121,7 +127,7 @@ class Desktop:
         ttk.Checkbutton(bottom, text="Mirror preview", variable=self.mirror, command=self.save_soon).pack(side="left")
         ttk.Checkbutton(bottom, text="Show original", variable=self.original).pack(side="right")
         ttk.Label(viewer, textvariable=self.output, style="Muted.TLabel").grid(row=3, column=0, sticky="w", pady=4)
-        self.notice = tk.Label(root, textvariable=self.detail, font=("Segoe UI", 10), fg="#536575", bg="#f2f4f7",
+        self.notice = tk.Label(root, textvariable=self.detail, font=(self.font, 10), fg="#536575", bg="#f2f4f7",
                                anchor="w", justify="left", wraplength=1050, pady=16)
         self.notice.grid(row=2, column=0, columnspan=2, sticky="ew", padx=26)
         self.apply_theme()
@@ -129,7 +135,7 @@ class Desktop:
         root.protocol("WM_DELETE_WINDOW", self.close)
         root.bind("<Escape>", lambda event: self.cancel_calibration())
         self.refresh_cameras()
-        self.poll_job = root.after(30, self.poll)
+        self.poll_job = root.after(250, self.poll)
 
     def apply_theme(self):
         p = self.palette = THEMES[self.theme.get().lower()]
@@ -137,21 +143,21 @@ class Desktop:
         self.root.configure(bg=p["app"])
         style.configure("TFrame", background=p["panel"])
         style.configure("App.TFrame", background=p["app"])
-        style.configure("TLabel", background=p["panel"], foreground=p["text"], font=("Segoe UI", 11))
-        style.configure("Muted.TLabel", foreground=p["muted"], font=("Segoe UI", 9))
-        style.configure("Brand.TLabel", background=p["app"], font=("Segoe UI", 27, "bold"))
-        style.configure("Subtitle.TLabel", background=p["app"], foreground=p["muted"], font=("Segoe UI", 10))
-        style.configure("Status.TLabel", background=p["field"], foreground=p["accent"], padding=(12,8), font=("Segoe UI", 10, "bold"))
-        style.configure("TButton", padding=(12,9), font=("Segoe UI",10), background=p["field"],
+        style.configure("TLabel", background=p["panel"], foreground=p["text"], font=(self.font, 11))
+        style.configure("Muted.TLabel", foreground=p["muted"], font=(self.font, 9))
+        style.configure("Brand.TLabel", background=p["app"], font=(self.font, 27, "bold"))
+        style.configure("Subtitle.TLabel", background=p["app"], foreground=p["muted"], font=(self.font, 10))
+        style.configure("Status.TLabel", background=p["field"], foreground=p["accent"], padding=(12,8), font=(self.font, 10, "bold"))
+        style.configure("TButton", padding=(12,9), font=(self.font,10), background=p["field"],
                         foreground=p["text"], bordercolor=p["border"], lightcolor=p["field"], darkcolor=p["field"], relief="flat")
         style.map("TButton", background=[("active",p["border"])], foreground=[("disabled",p["muted"])])
         style.configure("Primary.TButton", background=p["primary"], foreground="#ffffff", bordercolor=p["primary"],
-                        lightcolor=p["primary"], darkcolor=p["primary"], font=("Segoe UI",11,"bold"))
+                        lightcolor=p["primary"], darkcolor=p["primary"], font=(self.font,11,"bold"))
         style.map("Primary.TButton", background=[("disabled",p["field"]),("active",p["hover"])])
-        style.configure("TCheckbutton", background=p["panel"], foreground=p["text"], font=("Segoe UI",10),
+        style.configure("TCheckbutton", background=p["panel"], foreground=p["text"], font=(self.font,10),
                         indicatorbackground=p["field"], indicatorforeground=p["accent"], bordercolor=p["border"])
         style.map("TCheckbutton", background=[("active",p["panel"])], foreground=[("disabled",p["muted"])])
-        style.configure("TCombobox", padding=7, font=("Segoe UI",10), background=p["field"],
+        style.configure("TCombobox", padding=7, font=(self.font,10), background=p["field"],
                         fieldbackground=p["field"], foreground=p["text"], arrowcolor=p["muted"], bordercolor=p["border"],
                         lightcolor=p["field"], darkcolor=p["field"])
         style.map("TCombobox", fieldbackground=[("readonly",p["field"])],
@@ -160,7 +166,7 @@ class Desktop:
         style.configure("TScale", background=p["accent"], troughcolor=p["field"], bordercolor=p["panel"])
         style.configure("TNotebook", background=p["panel"], borderwidth=0)
         style.configure("TNotebook.Tab", padding=(10,9), background=p["panel"], foreground=p["muted"],
-                        bordercolor=p["panel"], lightcolor=p["panel"], font=("Segoe UI",10))
+                        bordercolor=p["panel"], lightcolor=p["panel"], font=(self.font,10))
         style.map("TNotebook.Tab", background=[("selected",p["field"])], foreground=[("selected",p["accent"])])
         self.root.option_add("*TCombobox*Listbox.background",p["field"])
         self.root.option_add("*TCombobox*Listbox.foreground",p["text"])
@@ -284,11 +290,11 @@ class Desktop:
         canvas = self.calibration_canvas
         canvas.delete("all")
         width, height = self.calibration_size
-        canvas.create_text(width/2, height/2+85, text=message+"\nKeep your head still.", fill="white", font=("Segoe UI", 23), justify="center")
+        canvas.create_text(width/2, height/2+85, text=message+"\nKeep your head still.", fill="white", font=(self.font, 23), justify="center")
         if state == "screen":
             canvas.create_line(width/2-20, height/2, width/2+20, height/2, fill="white", width=3)
             canvas.create_line(width/2, height/2-20, width/2, height/2+20, fill="white", width=3)
-        self.calibration_progress = canvas.create_text(width/2, height/2+165, text="", fill="#a8c9d8", font=("Segoe UI", 13))
+        self.calibration_progress = canvas.create_text(width/2, height/2+165, text="", fill="#a8c9d8", font=(self.font, 13))
 
     def show_frame(self, packet):
         original, corrected, found, fps, lens, screen = packet
@@ -296,13 +302,19 @@ class Desktop:
         width, height = self.preview.winfo_width(), self.preview.winfo_height()
         scale = min(width/frame.shape[1], height/frame.shape[0], 1.)
         if scale <= 0: return
-        frame = cv2.resize(frame, (max(1, int(frame.shape[1]*scale)), max(1, int(frame.shape[0]*scale))))
+        if scale < 1:
+            frame = cv2.resize(frame, (max(1, int(frame.shape[1]*scale)), max(1, int(frame.shape[0]*scale))),
+                               interpolation=cv2.INTER_AREA)
         if self.mirror.get(): frame = cv2.flip(frame, 1)
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         header = f"P6\n{rgb.shape[1]} {rgb.shape[0]}\n255\n".encode()
-        self.photo = tk.PhotoImage(data=header+rgb.tobytes(), format="PPM", master=self.root)
+        data = header + rgb.tobytes()
+        if self.photo and (self.photo.width(), self.photo.height()) == (rgb.shape[1], rgb.shape[0]):
+            self.photo.configure(data=data, format="PPM")
+        else:
+            self.photo = tk.PhotoImage(data=data, format="PPM", master=self.root)
         self.preview.configure(image=self.photo, text="")
-        self.stats.set(f"{fps:.0f} fps · {self.provider.get()} · {'Face found' if found else 'No face'}")
+        self.stats.set(f"{fps:.0f} fps · {self.active_provider} · {'Face found' if found else 'No face'}")
         if self.calibration_window:
             self.calibration_canvas.itemconfigure(self.calibration_progress, text=f"Lens {lens}/15  ·  Screen {screen}/15")
 
@@ -316,6 +328,10 @@ class Desktop:
                     self.failed = True
                     self.detail.set(value)
                     self.notice.configure(fg=self.palette["danger"])
+                elif kind == "status":
+                    self.detail.set(value)
+                elif kind == "provider":
+                    self.active_provider = next(label for label, key in self.providers.items() if key == value[0])
                 elif kind == "started":
                     self.status.set("Camera running")
                     self.calibrate_button.configure(state="normal")
@@ -339,12 +355,15 @@ class Desktop:
                     self.provider_menu.configure(state="readonly")
                     if not self.failed: self.detail.set("Camera released. Your adjustments are saved.")
             if self.worker:
-                try: self.show_frame(worker.frames.get_nowait())
+                try:
+                    packet = worker.frames.get_nowait()
+                    if not self.closing and self.root.state() != "iconic":
+                        self.show_frame(packet)
                 except queue.Empty: pass
         if self.closing and not self.worker:
             self.root.destroy()
             return
-        self.poll_job = self.root.after(30, self.poll)
+        self.poll_job = self.root.after(30 if self.worker else 250, self.poll)
 
     def close(self):
         self.closing = True
@@ -364,7 +383,7 @@ def main():
     parser = argparse.ArgumentParser(description="Gazeshift desktop")
     parser.add_argument("--settings", type=Path, default=Path.home()/".gaze_cam/desktop.json")
     parser.add_argument("--config", type=Path, default=Path.home()/".gaze_cam/config.json")
-    parser.add_argument("--provider", choices=("cpu", "dml", "cuda", "coreml"))
+    parser.add_argument("--provider", choices=("auto", "cpu", "dml", "cuda", "coreml"))
     args = parser.parse_args()
     enable_dpi_awareness()
     root = tk.Tk()

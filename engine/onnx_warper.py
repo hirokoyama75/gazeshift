@@ -1,11 +1,12 @@
 """One both-eye ONNX session; provider probing never installs runtime wheels."""
 from pathlib import Path
+import hashlib
 import os
 import time
 import numpy as np
 import onnxruntime as ort
+from utils.paths import ROOT, cache_root
 
-ROOT = Path(__file__).resolve().parents[1]
 PROVIDERS = {"cpu": "CPUExecutionProvider", "dml": "DmlExecutionProvider",
              "cuda": "CUDAExecutionProvider", "coreml": "CoreMLExecutionProvider"}
 
@@ -33,7 +34,25 @@ class OnnxWarper:
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         if provider == "dml":
             options.enable_mem_pattern = False
-        self.session = ort.InferenceSession(str(model), sess_options=options, providers=[name])
+        provider_options = {}
+        if provider == "cuda":
+            ort.preload_dlls()
+            # Keep the original fp32 accuracy; CUDA enables reduced-precision TF32 by default.
+            provider_options = {"use_tf32": "0", "cudnn_conv_algo_search": "DEFAULT"}
+        elif provider == "coreml":
+            digest = hashlib.sha256(Path(model).read_bytes()).hexdigest()
+            provider_options = {
+                "ModelFormat": "NeuralNetwork", "MLComputeUnits": "CPUAndGPU",
+                "RequireStaticInputShapes": "1", "AllowLowPrecisionAccumulationOnGPU": "0",
+                "ModelCacheDirectory": str(cache_root() / "coreml" / ort.__version__ / digest),
+            }
+        self.session = ort.InferenceSession(str(model), sess_options=options,
+                                            providers=[(name, provider_options)])
+        if name not in self.session.get_providers():
+            raise RuntimeError(f"{name} could not start; CPU fallback was rejected. "
+                               "For NVIDIA, update your driver and use Start Gazeshift NVIDIA GPU.bat. "
+                               "Otherwise select CPU or Automatic in Processing.")
+        self.session.disable_fallback()
         self.provider, self.threads, self.calls = provider, threads, 0
         expected = {f"{kind}_{side}": shape for side in ("l", "r") for kind, shape in
                     (("img", [1, 48, 64, 3]), ("fp", [1, 48, 64, 12]), ("ang", [1, 2]))}
@@ -59,12 +78,14 @@ def choose_provider(model=ROOT / "weights/flx_12.onnx"):
             continue
         try:
             engine = OnnxWarper(model, provider)
+            for _ in range(10):
+                engine.session.run(None, inputs)
             samples = []
             for _ in range(20):
                 start = time.perf_counter_ns()
                 engine.session.run(None, inputs)
                 samples.append(time.perf_counter_ns() - start)
-            timings[provider] = float(np.median(samples))
+            timings[provider] = float(np.percentile(samples, 95))
         except Exception as error:
             print(f"Provider {provider} unavailable: {error}")
     if not timings:

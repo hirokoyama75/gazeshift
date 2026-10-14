@@ -12,6 +12,9 @@ This rebuilds [WangWilly's gaze-correction-cam](https://github.com/WangWilly/gaz
 - Two-look calibration adjusts for your camera's position and saves the result.
 - Capture keeps the newest frame; preview controls stay off the call feed.
 - Desktop controls offer saved dark/light themes, strength and aim adjustments.
+- Automatic processing compares warmed-up backend timings; the preview shows the backend actually used.
+- Mac cameras use native device names, and the interface uses the system's font.
+- The standalone Mac build includes Python and both models; idle polling slows down and minimized previews stop rendering.
 - Eye compositing converts only the region it samples, reducing CPU memory traffic.
 
 ## Run it
@@ -24,9 +27,24 @@ On Windows, double-click **Start Gazeshift.bat** (uv must be installed). Or laun
 uv run --exact --extra virtualcam gui.py
 ```
 
+For a standalone Mac build, unzip **Gazeshift-macOS-arm64.zip**, move **Gazeshift.app** into Applications, and open it. It includes Python, both models and call-output support; launching it needs neither uv nor a network connection. Allow **Gazeshift** under **System Settings → Privacy & Security → Camera**, then press **Start camera**. OBS is still required for video-call output.
+
+Development builds are ad-hoc signed, with camera permission metadata and entitlements. Developer ID signing and Apple notarization are still required before a normal public download release. The local build accepts `GAZESHIFT_CODESIGN_IDENTITY` for an installed signing certificate.
+
+To run directly from source on Apple Silicon macOS 14+, install uv, open Terminal in this project folder, and run:
+
+```bash
+chmod +x "Start Gazeshift.command"
+./"Start Gazeshift.command"
+```
+
+After that, double-click **Start Gazeshift.command**. It keeps its environment in `.cache/mac`. Allow Terminal or Python in **System Settings → Privacy & Security → Camera** when prompted; restart Gazeshift after changing permissions. Intel Macs and running Terminal under Rosetta are unsupported.
+
+New desktop settings start with **Automatic** processing. It compares CPU and installed accelerators using 10 warmups followed by 20 timed calls per backend, choosing the lowest p95. Saved choices are respected. Core ML uses static shapes, full-precision GPU accumulation and a model-content cache; the CPU may still be faster for this small model. You can select **CPU** or **Apple Core ML** explicitly under **Setup**. First-time Core ML compilation can delay startup. These choices use the existing ONNX model without changing its weights.
+
 Choose your camera, then press **Start camera**. Use the **Correction** tab for strength, aim adjustments and calibration. **Show original** compares the untouched picture without changing the call feed. Your controls are saved automatically; the camera stays off until you start it.
 
-Use the **Dark / Light** selector at the top to change appearance. Dark is the default.
+Use the **Dark / Light** selector at the top to change appearance. Dark is the default; both use a neutral palette and the native system font.
 
 Strength runs from 0–150%: up to 100% fades the correction; above 100% requests a larger shift within the same ±15° limits. This does not lock your gaze. Blinks and head-turn fades remain active.
 
@@ -40,7 +58,14 @@ The regular launcher uses CPU. For AMD or Intel graphics on Windows, double-clic
 uv run --exact --no-group cpu --extra dml --extra virtualcam gui.py --provider dml
 ```
 
-For NVIDIA CUDA, replace `--extra dml` with `--extra cuda` and `--provider dml` with `--provider cuda`; compatible CUDA/cuDNN libraries are required. Available options appear under **Call output & setup**. GPU acceleration moves eye inference to the GPU; tracking, compositing and preview still use CPU.
+For NVIDIA on Windows, double-click **Start Gazeshift NVIDIA GPU.bat**. It installs ONNX Runtime with its CUDA/cuDNN libraries in `.cache/cuda`, separate from CPU and AMD. The first download is large. A compatible NVIDIA driver is still required. CUDA is preloaded before session creation, TF32 is disabled to preserve fp32 accuracy, and a failed CUDA startup produces an error instead of reporting CPU work as NVIDIA acceleration. Or use:
+
+```powershell
+$env:UV_PROJECT_ENVIRONMENT = ".cache/cuda"
+uv run --locked --exact --no-group cpu --extra cuda --extra virtualcam gui.py --provider cuda
+```
+
+Available options appear under **Setup**. GPU acceleration moves eye inference to the GPU; tracking, compositing and preview still use CPU. Mac and NVIDIA hardware performance has not yet been measured.
 
 For video calls, install OBS and enable **Send video to call apps** before starting the camera. Choose **OBS Virtual Camera** in your call app; leave OBS's own output stopped. Close OBS if it holds your webcam. On macOS, first start and stop OBS's Virtual Camera once to approve its camera extension.
 
@@ -62,9 +87,38 @@ uv run --exact --group dev python scripts/verify_headless.py --all --timeout-sec
 
 This rebuilds the model from the included original checkpoints and compares it against TensorFlow in a separate environment. It also tests the video pipeline and calibration without opening a camera or window. Datasets, recordings, reports and local environments stay out of Git.
 
-On October 14, 2026, **49/49 headless tests passed**, with no skips or expected failures. Both-eye CPU inference measured **7.11 ms p95** on a Ryzen 5 3600, below the **9 ms** gate (50 warmups, 500 timed runs). A separate real-window test covers desktop controls, theme switching and calibration placement without opening a camera. Production does not pin CPU affinity.
+On October 14, 2026, **60/60 headless tests passed**, with no skips or expected failures, including platform/backend and packaging checks. The separate real-window test also passed, covering desktop controls, theme switching, calibration placement, automatic backend labels, preview image reuse and minimized rendering without opening a camera. The CPU gate remains **9 ms p95** (50 warmups, 500 timed runs); the latest full verifier measured **7.20 ms p95** on a Ryzen 5 3600. Production does not pin CPU affinity.
 
-Live Windows/Mac camera and OBS checks, sustained 30 fps, capture-to-output latency, visual quality, real-person calibration and memory usage remain **manual_pending**.
+Live Windows/Mac camera and OBS checks, sustained 30 fps, capture-to-output latency, visual quality, real-person calibration and memory usage remain **manual_pending**. The Mac and NVIDIA additions have simulated platform regression checks; those do not establish hardware performance or live acceptance.
+
+To measure a target machine without opening its camera, run the matched backend benchmark:
+
+```bash
+# Apple Silicon: default ONNX Runtime includes the Core ML provider.
+UV_PROJECT_ENVIRONMENT=.cache/mac uv run --locked --exact python scripts/benchmark_provider.py --provider coreml --report artifacts/coreml.json
+```
+
+```powershell
+# NVIDIA: use the same isolated runtime as its launcher.
+$env:UV_PROJECT_ENVIRONMENT = ".cache/cuda"
+uv run --locked --exact --no-group cpu --extra cuda python scripts/benchmark_provider.py --provider cuda --report artifacts/cuda.json
+```
+
+Each report includes matched CPU/backend timings (50 warmups, 500 samples), the model hash, accuracy checks, and a separate execution profile confirming backend work. With the local verification fixtures present, it checks all eight real-data/angle cases against the original TensorFlow outputs at the unchanged `0.0001` limit. A fresh clone instead checks three synthetic eye cases against CPU and explicitly labels original-model parity unverified; run the full verifier first for that stronger check. Reports and profiles stay local. Benchmark timings measure eye inference, not total webcam latency or live FPS.
+
+## Build the standalone Mac app
+
+Build on an Apple Silicon Mac with macOS 14+ and native Python 3.12:
+
+```bash
+UV_PROJECT_ENVIRONMENT=.cache/mac-build-env uv run --locked --exact --group build --extra virtualcam python scripts/build_macos.py
+```
+
+The builder checks the pinned models, bundles the existing Tk interface and processing libraries with PyInstaller, verifies arm64 code signing, runs the packaged executable from outside the project with camera I/O forbidden, and creates `artifacts/macos/Gazeshift-macOS-arm64.zip`. It also saves a source archive, bundled dependency notices and measured CPU/Core ML reports. The smoke check loads the real tracker, creates the real interface with the camera off, and checks backend accuracy and profiling. Camera/OBS operation and sustained resource usage still require live Mac testing.
+
+The **Build macOS app** GitHub Actions workflow uses an Apple Silicon runner and uploads these development artifacts. It runs on the `codex/gazeshift-v2` branch or by manual dispatch. End users do not install the build tools.
+
+The `.app` uses one process, without a browser runtime or per-launch unpacking. Its processing pipeline, model precision, latest-frame queues and correction limits are unchanged. The interface polls at 4 Hz while stopped and skips preview rendering while minimized; call output continues normally. Compiled Core ML caches live in `~/Library/Caches/Gazeshift`, outside the signed app. Preferences remain in `~/.gaze_cam/`.
 
 A separate RX 6600 XT benchmark measured **0.95 ms p95** dual-eye DirectML inference versus **7.00 ms** CPU (ORT 1.24.4, 50 warmups / 500 runs). All eight real-data/angle-sweep comparisons passed the unchanged TensorFlow accuracy limit; profiling confirmed GPU execution. This does not establish live FPS or power consumption. Synthetic 720p two-eye compositing improved from **13.22 to 5.02 ms median**, with identical pixels in that benchmark. No model weights or correction limits changed.
 

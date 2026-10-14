@@ -10,7 +10,7 @@ import time
 
 from engine.geometry import load_config
 from engine.landmark_tracker import LandmarkTracker
-from engine.onnx_warper import OnnxWarper
+from engine.onnx_warper import OnnxWarper, choose_provider
 from engine.pipeline import Correction, Pipeline
 from utils.calibration import Calibration
 from utils.video_io import Capture, VirtualCamera
@@ -28,7 +28,7 @@ class DesktopSettings:
     def validate(self):
         if type(self.camera) is not int or not 0 <= self.camera <= 99:
             raise ValueError("Choose a camera number from 0 to 99")
-        if self.provider not in ("cpu", "coreml", "dml", "cuda"):
+        if self.provider not in ("auto", "cpu", "coreml", "dml", "cuda"):
             raise ValueError("Unknown processing option")
         if type(self.virtual_camera) is not bool or type(self.mirror) is not bool:
             raise ValueError("Invalid output settings")
@@ -69,9 +69,12 @@ def save_settings(path, settings):
 def startup_error(stage, error, camera):
     if stage == "camera":
         return (f"Camera {camera} could not be opened. Close OBS and other apps using your webcam, "
-                "then try again. Check your camera selection and system camera permissions.")
+                "then try again. Check system camera permissions. On macOS, allow Gazeshift "
+                "(Terminal or Python when running from source) in "
+                "System Settings > Privacy & Security > Camera, then restart Gazeshift.")
     if stage == "output":
         return ("Call output is off. Install OBS, then leave OBS's own Virtual Camera stopped. "
+                "On macOS, start and stop OBS Virtual Camera once and approve its extension. "
                 "Select OBS Virtual Camera in your call app. Your preview still works. " + str(error))
     return "Gazeshift could not start: " + str(error)
 
@@ -95,12 +98,20 @@ class DesktopWorker(threading.Thread):
     def run(self):
         resources, stage = [], "model"
         try:
+            provider = self.settings.provider
+            if provider == "auto":
+                self.events.put(("status", "Comparing processing options…"))
+                provider, timings = choose_provider()
+                self.events.put(("provider", (provider, timings)))
+            else:
+                self.events.put(("provider", (provider, {})))
+            if self.stopping.is_set(): return
             geometry = load_config(self.config_path)
-            geometry = replace(geometry, provider=self.settings.provider)
+            geometry = replace(geometry, provider=provider)
             if geometry.reference_width != 1280:
                 geometry = replace(geometry, focal_length=geometry.focal_length * 1280/geometry.reference_width,
                                    reference_width=1280)
-            engine = self.engine_factory(provider=self.settings.provider)
+            engine = self.engine_factory(provider=provider)
             if self.stopping.is_set(): return
             tracker = self.tracker_factory(geometry)
             resources.append(tracker)
