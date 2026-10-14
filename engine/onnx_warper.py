@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib
 import os
+import sys
 import time
 import numpy as np
 import onnxruntime as ort
@@ -32,6 +33,9 @@ class OnnxWarper:
         options.inter_op_num_threads = 1
         options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        if sys.platform == "darwin":
+            # Sleep between camera frames while retaining fast scheduling within each run.
+            options.add_session_config_entry("session.force_spinning_stop", "1")
         if provider == "dml":
             options.enable_mem_pattern = False
         provider_options = {}

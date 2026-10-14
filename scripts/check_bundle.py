@@ -50,7 +50,11 @@ def main(argv=None):
                 root.update_idletasks()
                 assert app.worker is None
                 report["tk"] = str(root.tk.call("info", "patchlevel"))
-                app.close()
+                if root.tk.call("tk", "windowingsystem") == "aqua":
+                    root.tk.call("::tk::mac::Quit")
+                    report["mac_quit"] = "PASS"
+                else:
+                    app.close()
             except BaseException:
                 root.destroy()
                 raise

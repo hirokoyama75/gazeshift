@@ -133,6 +133,8 @@ class Desktop:
         self.apply_theme()
         root.bind("<Configure>", lambda event: self.notice.configure(wraplength=max(300,event.width-52)) if event.widget==root else None)
         root.protocol("WM_DELETE_WINDOW", self.close)
+        if root.tk.call("tk", "windowingsystem") == "aqua":
+            root.createcommand("::tk::mac::Quit", self.close)
         root.bind("<Escape>", lambda event: self.cancel_calibration())
         self.refresh_cameras()
         self.poll_job = root.after(250, self.poll)

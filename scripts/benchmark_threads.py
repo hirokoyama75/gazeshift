@@ -13,10 +13,11 @@ from scripts.benchmark_provider import benchmark
 from engine.onnx_warper import OnnxWarper, fixed_inputs, ROOT
 
 
-def paced_inference(spinning, threads):
+def paced_inference(spinning, threads, stop_between_frames=False):
     engine = OnnxWarper(threads=threads)
     options = engine.session.get_session_options()
     options.add_session_config_entry("session.intra_op.allow_spinning", str(spinning))
+    options.add_session_config_entry("session.force_spinning_stop", "1" if stop_between_frames else "0")
     engine.session = ort.InferenceSession(str(ROOT / "weights/flx_12.onnx"), sess_options=options,
                                          providers=["CPUExecutionProvider"])
     feed = fixed_inputs()
@@ -30,7 +31,8 @@ def paced_inference(spinning, threads):
         time.sleep(max(0, started+(index+1)/30-time.monotonic()))
     elapsed, used = time.monotonic()-started, time.process_time()-cpu
     return dict(cpu_percent_of_one_core=100*used/elapsed, p95_ms=float(np.percentile(samples,95)),
-                delivered_fps=90/elapsed, frames=90, threads=threads, spinning=spinning)
+                delivered_fps=90/elapsed, frames=90, threads=threads, spinning=spinning,
+                stop_between_frames=stop_between_frames)
 
 
 def main():
@@ -52,6 +54,7 @@ def main():
     args.report.parent.mkdir(parents=True, exist_ok=True)
     threads = min((int(value) for value in results), key=lambda n: results[str(n)]["p95_ms"])
     paced = {str(spinning): paced_inference(spinning, threads) for spinning in (1,0)}
+    paced["between_frames"] = paced_inference(1, threads, stop_between_frames=True)
     args.report.write_text(json.dumps({"host": platform.platform(), "machine": platform.machine(),
                                       "warmups":50, "timed_runs":500, "results":results,
                                       "paced_synthetic_inference":paced}, indent=2))

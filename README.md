@@ -87,7 +87,7 @@ uv run --exact --group dev python scripts/verify_headless.py --all --timeout-sec
 
 This rebuilds the model from the included original checkpoints and compares it against TensorFlow in a separate environment. It also tests the video pipeline and calibration without opening a camera or window. Datasets, recordings, reports and local environments stay out of Git.
 
-On October 14, 2026, **61/61 headless tests passed**, with no skips or expected failures, including platform/backend and packaging checks. The separate real-window test also passed, covering desktop controls, theme switching, calibration placement, automatic backend labels, preview image reuse and minimized rendering without opening a camera. The CPU gate remains **9 ms p95** (50 warmups, 500 timed runs). Production does not pin CPU affinity.
+On October 14, 2026, **62/62 headless tests passed**, with no skips or expected failures, including platform/backend and packaging checks. The separate real-window test also passed, covering desktop controls, theme switching, calibration placement, automatic backend labels, preview image reuse and minimized rendering without opening a camera. The CPU gate remains **9 ms p95** (50 warmups, 500 timed runs). Production does not pin CPU affinity.
 
 Live Windows/Mac camera and OBS checks, sustained 30 fps, capture-to-output latency, visual quality, real-person calibration and memory usage remain **manual_pending**. The Mac and NVIDIA additions have simulated platform regression checks; those do not establish hardware performance or live acceptance.
 
@@ -118,7 +118,9 @@ The builder checks the pinned models, bundles the existing Tk interface and proc
 
 The **Build macOS app** GitHub Actions workflow uses an Apple Silicon runner and uploads these development artifacts. It runs on the `codex/gazeshift-v2` branch or by manual dispatch. End users do not install the build tools.
 
-The `.app` uses one process, without a browser runtime or per-launch unpacking. Its processing pipeline, model precision, latest-frame queues and correction limits are unchanged. The interface polls at 4 Hz while stopped and skips preview rendering while minimized; call output continues normally. Compiled Core ML caches live in `~/Library/Caches/Gazeshift`, outside the signed app. Preferences remain in `~/.gaze_cam/`.
+The `.app` uses one process, without a browser runtime or per-launch unpacking. Its processing pipeline, model precision, latest-frame queues and correction limits are unchanged. The interface polls at 4 Hz while stopped and skips preview rendering while minimized; call output continues normally. On macOS, ONNX workers sleep between inference calls while retaining fast scheduling within each run. Compiled Core ML caches live in `~/Library/Caches/Gazeshift`, outside the signed app. Preferences remain in `~/.gaze_cam/`. The native Quit command uses the same camera cleanup as closing the window.
+
+On the shared M1 macOS 14 runner, the normal packaged interface with its camera off measured **0.20% of one CPU core and 109 MiB RSS** over five seconds after a ten-second startup warmup. This measures idle use only. The workflow also reports paced synthetic inference with different worker wait policies; it does not measure whole-pipeline camera FPS, battery use, or electrical power.
 
 A separate RX 6600 XT benchmark measured **0.95 ms p95** dual-eye DirectML inference versus **7.00 ms** CPU (ORT 1.24.4, 50 warmups / 500 runs). All eight real-data/angle-sweep comparisons passed the unchanged TensorFlow accuracy limit; profiling confirmed GPU execution. This does not establish live FPS or power consumption. Synthetic 720p two-eye compositing improved from **13.22 to 5.02 ms median**, with identical pixels in that benchmark. No model weights or correction limits changed.
 

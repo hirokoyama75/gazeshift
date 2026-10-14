@@ -55,6 +55,15 @@ def test_coreml_static_precision_and_content_cache(tmp_path, monkeypatch, metric
     metrics.update(static_shapes=True, gpu_fp32_accumulation=True, cache_changes_with_model=True)
 
 
+def test_mac_workers_sleep_between_inference_calls(monkeypatch, metrics):
+    sessions = fake_session(monkeypatch)
+    with monkeypatch.context() as patch:
+        patch.setattr(module.sys, "platform", "darwin")
+        module.OnnxWarper(provider="cpu")
+        assert sessions[-1].options.get_session_config_entry("session.force_spinning_stop") == "1"
+    metrics.update(sleep_between_frames=True, scheduling_within_run_unchanged=True)
+
+
 def test_provider_probe_warmup_and_cpu_fallback(monkeypatch, metrics):
     clock, calls = [0], {}
     monkeypatch.setattr(module.time, "perf_counter_ns", lambda: clock[0])
