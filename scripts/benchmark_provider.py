@@ -46,8 +46,8 @@ def parity_cases():
     return "synthetic CPU consistency only; original TensorFlow parity unverified", cases
 
 
-def benchmark(provider):
-    engine = OnnxWarper(provider=provider)
+def benchmark(provider, threads=None):
+    engine = OnnxWarper(provider=provider, threads=threads)
     feed = fixed_inputs()
     for _ in range(50):
         engine.session.run(None, feed)

@@ -20,6 +20,8 @@ jobs:
           python-version: '3.12'
       - name: Build and check the standalone app
         run: uv run --locked --exact --group build --extra virtualcam python scripts/build_macos.py
+      - name: Compare CPU thread choices
+        run: uv run --locked --exact --group build --extra virtualcam python scripts/benchmark_threads.py --report artifacts/macos/cpu-threads.json
       - name: Save app, source and measured backend reports
         uses: actions/upload-artifact@v4
         with:
