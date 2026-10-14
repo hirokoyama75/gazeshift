@@ -29,7 +29,7 @@ uv run --exact --extra virtualcam gui.py
 
 For a standalone Mac build, unzip **Gazeshift-macOS-arm64.zip**, move **Gazeshift.app** into Applications, and open it. It includes Python, both models and call-output support; launching it needs neither uv nor a network connection. Allow **Gazeshift** under **System Settings → Privacy & Security → Camera**, then press **Start camera**. OBS is still required for video-call output.
 
-[Download the October 14 development build](https://github.com/hirokoyama75/gazeshift/actions/runs/38605237108/artifacts/11914929233) (GitHub sign-in required). Expand the artifact download, then its `Gazeshift-macOS-arm64.zip` to get the app.
+[Download the October 14 development build with 250% strength](https://github.com/hirokoyama75/gazeshift/actions/runs/38634591529/artifacts/11927173599) (GitHub sign-in required). Expand the artifact download, then its `Gazeshift-macOS-arm64.zip` to get the app.
 
 Development builds are ad-hoc signed, with camera permission metadata and entitlements. Developer ID signing and Apple notarization are still required before a normal public download release. The local build accepts `GAZESHIFT_CODESIGN_IDENTITY` for an installed signing certificate.
 
