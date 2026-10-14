@@ -1,6 +1,6 @@
 import pickle
 import numpy as np
-from engine.compositor import EyeCrop, compose, full_coordinates, remap_patch
+from engine.compositor import EyeCrop, compose, full_coordinates, remap_patch, remap_exact
 from engine.geometry import CameraGeometry
 from engine.pipeline import Pipeline
 from scripts.replay import synthetic_sample
@@ -117,6 +117,22 @@ def test_rolled_sampling_map_against_independent_frame_bilinear(metrics):
             assert max(errors)<=1,(roll,strength,max(errors))
             records.append(dict(roll=roll,strength=strength,pixels=len(pixels),max_error_uint8=max(errors)))
     metrics['independent_sampling']=records
+    # Small source regions, frame borders and far-out coordinates retain bilinear clamping.
+    map_x=np.array([[73.125,74.96875],[-5.,239.9]],np.float32)
+    map_y=np.array([[51.4,52.015625],[160.,-3.]],np.float32)
+    border_errors=[]
+    for image in (frame,frame[...,0]):
+        actual=remap_exact(image,map_x,map_y)
+        expected=np.empty_like(actual)
+        for row,col in np.ndindex(map_x.shape):
+            x,y=np.clip(map_x[row,col],0,239),np.clip(map_y[row,col],0,159)
+            x0,y0=int(np.floor(x)),int(np.floor(y));dx,dy=x-x0,y-y0
+            expected[row,col]=sum(image[min(159,yy),min(239,xx)].astype(float)*weight for xx,yy,weight in (
+                (x0,y0,(1-dx)*(1-dy)),(x0+1,y0,dx*(1-dy)),(x0,y0+1,(1-dx)*dy),(x0+1,y0+1,dx*dy)))
+        error=float(np.abs(actual-expected).max())
+        assert error<1e-4,error
+        border_errors.append(error)
+    metrics['border_sampler_max_errors']=border_errors
 
 
 def test_one_euro_stationary_variance(metrics):

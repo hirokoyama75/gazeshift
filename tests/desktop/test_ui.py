@@ -24,14 +24,27 @@ def test_desktop_window_controls_and_lifecycle(tmp_path,monkeypatch):
         def focus_force(self):pass
     monkeypatch.setattr(gui,'DesktopWorker',Worker)
     monkeypatch.setattr(gui,'list_cameras',lambda:[(0,'Logi C270'),(2,'Other camera')])
+    monkeypatch.setattr(gui.ort,'get_available_providers',lambda:['CPUExecutionProvider','DmlExecutionProvider'])
     monkeypatch.setattr(gui,'get_monitors',lambda:[Monitor(-1280,0,1280,720)])
     monkeypatch.setattr(gui.tk,'Toplevel',HiddenWindow)
     root=tk.Tk();root.withdraw();root.attributes('-alpha',0)
     app=None
     try:
-        app=gui.Desktop(root,tmp_path/'desktop.json',tmp_path/'config.json')
+        app=gui.Desktop(root,tmp_path/'desktop.json',tmp_path/'config.json',provider='dml')
         root.deiconify();root.update()
         assert app.worker is None and app.camera.get()=='0: Logi C270'
+        assert app.provider.get()=='AMD / Intel GPU'
+        assert app.theme.get()=='Dark' and root.cget('bg')==gui.THEMES['dark']['app']
+        app.theme.set('Light');app.theme_menu.event_generate('<<ComboboxSelected>>');root.update()
+        assert root.cget('bg')==gui.THEMES['light']['app']
+        assert app.preview.cget('bg')==gui.THEMES['light']['preview']
+        popdown=root.tk.call('ttk::combobox::PopdownWindow',app.theme_menu)
+        assert root.tk.call(f'{popdown}.f.l','cget','-background')==gui.THEMES['light']['field']
+        app.save()
+        assert load_settings(tmp_path/'desktop.json').theme=='light'
+        app.theme.set('Dark');app.change_theme()
+        assert app.style.lookup('TLabel','foreground')==gui.THEMES['dark']['text']
+        assert root.tk.call(f'{popdown}.f.l','cget','-background')==gui.THEMES['dark']['field']
         for size in ('1160x780','980x720'):
             root.geometry(size);root.update()
             assert app.calibrate_button.winfo_rooty()+app.calibrate_button.winfo_height()<root.winfo_rooty()+root.winfo_height()
@@ -66,6 +79,7 @@ def test_desktop_window_controls_and_lifecycle(tmp_path,monkeypatch):
         assert app.camera_menu.instate(['readonly'])
         app.save()
         assert load_settings(tmp_path/'desktop.json').correction.amount==1.
+        assert load_settings(tmp_path/'desktop.json').theme=='dark'
     finally:
         if app:
             app.hide_calibration()

@@ -23,6 +23,7 @@ class DesktopSettings:
     virtual_camera: bool = False
     mirror: bool = True
     correction: Correction = field(default_factory=Correction)
+    theme: str = "dark"
 
     def validate(self):
         if type(self.camera) is not int or not 0 <= self.camera <= 99:
@@ -33,6 +34,8 @@ class DesktopSettings:
             raise ValueError("Invalid output settings")
         if not isinstance(self.correction, Correction):
             raise ValueError("Invalid correction controls")
+        if self.theme not in ("dark", "light"):
+            raise ValueError("Choose dark or light appearance")
         return self
 
 

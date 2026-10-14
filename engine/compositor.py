@@ -27,7 +27,12 @@ def remap_exact(image, map_x, map_y):
     h, w = image.shape[:2]
     x = np.clip(map_x, 0, w-1).astype(np.float32)
     y = np.clip(map_y, 0, h-1).astype(np.float32)
-    source = image.astype(np.float32)
+    # Convert only the sampled source region, including each bilinear neighbour.
+    left, top = int(np.floor(x.min())), int(np.floor(y.min()))
+    right, bottom = min(w, int(np.floor(x.max()))+2), min(h, int(np.floor(y.max()))+2)
+    source = image[top:bottom, left:right].astype(np.float32)
+    x, y = x-left, y-top
+    h, w = source.shape[:2]
     sampled = cv2.remap(source, x, y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
     x0, y0 = np.floor(x).astype(int), np.floor(y).astype(int)
     x1, y1 = np.minimum(x0+1, w-1), np.minimum(y0+1, h-1)

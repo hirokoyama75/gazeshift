@@ -48,14 +48,14 @@ def test_desktop_settings_roundtrip(tmp_path,monkeypatch,metrics):
     import utils.desktop as module
     path=tmp_path/'desktop.json'
     assert load_settings(path)==DesktopSettings()
-    settings=DesktopSettings(camera=2,virtual_camera=True,mirror=False,correction=Correction(1.25,-3.,2.))
+    settings=DesktopSettings(camera=2,virtual_camera=True,mirror=False,correction=Correction(1.25,-3.,2.),theme='light')
     save_settings(path,settings)
     assert load_settings(path)==settings
     before=path.read_bytes()
     path.write_text('[]')
     with pytest.raises(ValueError): load_settings(path)
     path.write_bytes(before)
-    for settings in (replace(settings,camera=-1),replace(settings,provider='invalid'),replace(settings,mirror='false')):
+    for settings in (replace(settings,camera=-1),replace(settings,provider='invalid'),replace(settings,mirror='false'),replace(settings,theme='invalid')):
         with pytest.raises(ValueError): save_settings(path,settings)
         assert path.read_bytes()==before
     def fail(*args): raise OSError('injected write failure')
