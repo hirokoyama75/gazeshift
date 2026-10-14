@@ -1,0 +1,46 @@
+# Local environments and caches
+.venv/
+venv/
+__pycache__/
+.cache/
+.pytest_cache/
+artifacts/
+onnxruntime_profile*.json
+*.log
+
+# Keep working notes local; README is the public documentation
+*.md
+!/README.md
+.agents/
+.codex/
+.idea/
+.vscode/
+
+# Local credentials, recordings and machine settings
+.env
+.env.*
+!.env.example
+.gaze_cam/
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Downloaded models and upstream archives
+face_landmarker.task
+weights/*
+lm_feat/
+models/
+lm_feat.zip
+weights.zip
+
+# Milestone 0 checkpoints and the validated ONNX export are versioned
+!weights/tf/
+!weights/flx_12.onnx
+
+# User settings database
+user_settings.db
