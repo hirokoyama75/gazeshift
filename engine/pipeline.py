@@ -14,8 +14,8 @@ class Correction:
     def __post_init__(self):
         if not np.all(np.isfinite([self.amount, self.horizontal, self.vertical])):
             raise ValueError("Correction controls must be finite")
-        if not 0 <= self.amount <= 1.5 or max(abs(self.horizontal), abs(self.vertical)) > 10:
-            raise ValueError("Correction amount must be 0–150%; aim must be within ±10 degrees")
+        if not 0 <= self.amount <= 2.5 or max(abs(self.horizontal), abs(self.vertical)) > 10:
+            raise ValueError("Correction amount must be 0–250%; aim must be within ±10 degrees")
 
 
 class Pipeline:

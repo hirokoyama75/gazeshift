@@ -60,8 +60,11 @@ def test_desktop_window_controls_and_lifecycle(tmp_path,monkeypatch):
         assert app.worker is worker and app.status.get()=='Camera running'
         assert worker.settings.provider == 'auto' and app.active_provider == 'AMD / Intel GPU'
         assert app.camera_menu.instate(['disabled'])
-        app.amount.set(150);app.controls_changed()
-        assert list(worker.commands.queue)[-1][1].amount==1.5
+        for value in (200,250):
+            app.amount.set(value);app.controls_changed()
+            assert list(worker.commands.queue)[-1][1].amount==value/100
+        app.save()
+        assert load_settings(tmp_path/'desktop.json').correction.amount==2.5
         app.reset()
         assert app.amount.get()==100
         raw=np.full((2,4,3),10,np.uint8)

@@ -49,6 +49,10 @@ def main(argv=None):
                 app = gui.Desktop(root, Path(directory)/"desktop.json", Path(directory)/"config.json")
                 root.update_idletasks()
                 assert app.worker is None
+                app.amount.set(250)
+                app.controls_changed()
+                assert app.settings().correction.amount == 2.5
+                report["strength_max_percent"] = 250
                 report["tk"] = str(root.tk.call("info", "patchlevel"))
                 if root.tk.call("tk", "windowingsystem") == "aqua":
                     root.tk.call("::tk::mac::Quit")

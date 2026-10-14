@@ -36,12 +36,23 @@ def test_desktop_correction_controls(monkeypatch, metrics):
     pipeline.process(frame,face)
     np.testing.assert_allclose(angles[-1],[[15.,15.]],atol=1e-6)
     assert strengths[-2:]==[1.,1.]
+    for amount, expected in ((2., [4.,6.]), (2.5, [5.,7.5])):
+        pipeline.correction=Correction(amount,3.,2.)
+        pipeline.process(frame,face)
+        np.testing.assert_allclose(angles[-1],[expected],atol=1e-6)
+        assert strengths[-2:]==[1.,1.]
+    pipeline.correction=Correction(2.5,-10.,10.)
+    pipeline.process(frame,face)
+    np.testing.assert_allclose(angles[-1],[[15.,-15.]],atol=1e-6)
     face.blink=0
     count=len(angles)
     assert np.array_equal(pipeline.process(frame,face),frame) and len(angles)==count
-    for kwargs in ({'amount':-1},{'amount':2},{'amount':np.nan},{'horizontal':11},{'vertical':np.inf}):
+    face.blink=1
+    face.facing=np.array([0.,0.,-1.])
+    assert np.array_equal(pipeline.process(frame,face),frame) and len(angles)==count
+    for kwargs in ({'amount':-1},{'amount':2.501},{'amount':np.nan},{'horizontal':11},{'vertical':np.inf}):
         with pytest.raises(ValueError): Correction(**kwargs)
-    metrics.update(zero_skips_inference=True,boost_angle_limit_deg=15,opacity_limit=1,blink_preserved=True)
+    metrics.update(zero_skips_inference=True,max_amount=2.5,boost_angle_limit_deg=15,opacity_limit=1,blink_preserved=True,pose_fade_preserved=True)
 
 
 def test_desktop_settings_roundtrip(tmp_path,monkeypatch,metrics):
@@ -51,6 +62,10 @@ def test_desktop_settings_roundtrip(tmp_path,monkeypatch,metrics):
     settings=DesktopSettings(camera=2,virtual_camera=True,mirror=False,correction=Correction(1.25,-3.,2.),theme='light')
     save_settings(path,settings)
     assert load_settings(path)==settings
+    for amount in (2.,2.5):
+        boosted=replace(settings,correction=Correction(amount,-3.,2.))
+        save_settings(path,boosted)
+        assert load_settings(path)==boosted
     before=path.read_bytes()
     path.write_text('[]')
     with pytest.raises(ValueError): load_settings(path)
@@ -80,7 +95,7 @@ def test_desktop_worker_controls_and_cleanup(tmp_path,metrics):
         i=0
         def __init__(self,geometry):self.geometry=geometry
         def track(self,*args):
-            actions=[('correction',Correction(1.5)),('enabled',False),('enabled',True),('stop',None)]
+            actions=[('correction',Correction(2.5)),('enabled',False),('enabled',True),('stop',None)]
             action,value=actions[self.i];self.i+=1
             if action=='stop':worker.stop()
             else:worker.commands.put((action,value))

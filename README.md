@@ -50,7 +50,9 @@ Choose your camera, then press **Start camera**. Use the **Correction** tab for 
 
 Use the **Dark / Light** selector at the top to change appearance. Dark is the default; both use a neutral palette and the native system font.
 
-Strength runs from 0–150%: up to 100% fades the correction; above 100% requests a larger shift within the same ±15° limits. This does not lock your gaze. Blinks and head-turn fades remain active.
+Strength runs from **0–250%**, including 200% and 250%. Up to 100% fades the correction; above 100% multiplies the requested shift within the same **±15° model limits**. Once an angle reaches that limit, increasing the percentage cannot move it further. This uses the same single both-eye inference call per processed frame; it does not add model passes. Blinks and head-turn fades remain active.
+
+Looking at an upper monitor changes the direction of your eyes. The current engine applies a calibrated screen/camera offset, without continuously measuring your iris direction or identifying which display you are looking at. More strength or a vertical aim adjustment can help within its range, but 250% does not guarantee invisible switching between screens or a constant camera-facing gaze.
 
 Horizontal aim adds a left/right adjustment to both eyes; vertical aim adds an up/down adjustment. Start at zero, calibrate, then make small changes if needed. These are offsets, not a fixed gaze target. Mirroring reverses the apparent horizontal direction in the preview.
 
