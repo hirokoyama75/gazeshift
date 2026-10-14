@@ -1,0 +1,127 @@
+{
+  "assets": [
+    {
+      "local": ".cache/source/LICENSES",
+      "git_blob": "9c9e9a144f8ffbd5dff6402cf1b854ff38146362",
+      "size": 1456,
+      "path": "LICENSES"
+    },
+    {
+      "local": "weights/tf/flx/12/L/L.data-00000-of-00001",
+      "git_blob": "8dbef0d5f57c344fb816e25b5ce5857a28f02f34",
+      "size": 2994764,
+      "path": "gaze_correction_system/weights/warping_model/flx/12/L/L.data-00000-of-00001"
+    },
+    {
+      "local": "weights/tf/flx/12/L/L.index",
+      "git_blob": "9cb43d0edc76fbf332d806afb5cca903e252693e",
+      "size": 5215,
+      "path": "gaze_correction_system/weights/warping_model/flx/12/L/L.index"
+    },
+    {
+      "local": "weights/tf/flx/12/L/L.meta",
+      "git_blob": "23515fd69cc88dea51920b4575c86d399b4d13a3",
+      "size": 3181497,
+      "path": "gaze_correction_system/weights/warping_model/flx/12/L/L.meta"
+    },
+    {
+      "local": "weights/tf/flx/12/L/checkpoint",
+      "git_blob": "d6a40e410ce14c6d6ab118e00b4fda14a0293910",
+      "size": 27,
+      "path": "gaze_correction_system/weights/warping_model/flx/12/L/checkpoint"
+    },
+    {
+      "local": "weights/tf/flx/12/R/R.data-00000-of-00001",
+      "git_blob": "f9a9ee1653ea94432f78dc4729173d2b3f24dc6a",
+      "size": 2994764,
+      "path": "gaze_correction_system/weights/warping_model/flx/12/R/R.data-00000-of-00001"
+    },
+    {
+      "local": "weights/tf/flx/12/R/R.index",
+      "git_blob": "c1eedafab8d392b800a96c6f897f4f10c788edd3",
+      "size": 5215,
+      "path": "gaze_correction_system/weights/warping_model/flx/12/R/R.index"
+    },
+    {
+      "local": "weights/tf/flx/12/R/R.meta",
+      "git_blob": "99b1fb9a6170fa3724535fc62184ed29c724be56",
+      "size": 3181497,
+      "path": "gaze_correction_system/weights/warping_model/flx/12/R/R.meta"
+    },
+    {
+      "local": "weights/tf/flx/12/R/checkpoint",
+      "git_blob": "4f29c8979b9c8edff42ffb279f0818dad71707be",
+      "size": 27,
+      "path": "gaze_correction_system/weights/warping_model/flx/12/R/checkpoint"
+    },
+    {
+      "local": ".cache/source/flx.py",
+      "git_blob": "fcbc4f9f59c8fe75065047c8919b71bd903de032",
+      "size": 9452,
+      "path": "training/code_tf/model_train/flx.py"
+    },
+    {
+      "local": ".cache/source/load_dataset2.py",
+      "git_blob": "9db65ee5266cb8774620ea5892978f0154597b18",
+      "size": 8948,
+      "path": "training/code_tf/model_train/load_dataset2.py"
+    },
+    {
+      "local": ".cache/source/transformation.py",
+      "git_blob": "c42586ecba6e37c60b47cf1f7ef80c1ba6133e12",
+      "size": 4157,
+      "path": "training/code_tf/model_train/transformation.py"
+    },
+    {
+      "local": ".cache/source/0008_L",
+      "git_blob": "f17e8f0d6db5eb0384f439a2c71fafb9a2ab971a",
+      "size": 18162357,
+      "path": "training/dataset/dirl_48x64_example/valid_inputs/0/0008/0008_L"
+    },
+    {
+      "local": ".cache/source/0008_R",
+      "git_blob": "ed7d0d1073838a63bd7b3151c3a7f1556ce3fc4f",
+      "size": 18162357,
+      "path": "training/dataset/dirl_48x64_example/valid_inputs/0/0008/0008_R"
+    }
+  ],
+  "seed": 0,
+  "schema": 1,
+  "sweeps": [
+    [
+      0,
+      0
+    ],
+    [
+      15,
+      0
+    ],
+    [
+      -15,
+      0
+    ],
+    [
+      0,
+      15
+    ],
+    [
+      0,
+      -15
+    ]
+  ],
+  "commit": "7cc76e4ccaf76c950730c593ffa22bed30c807a4",
+  "pairs": [
+    [
+      0,
+      1
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      2,
+      3
+    ]
+  ]
+}
