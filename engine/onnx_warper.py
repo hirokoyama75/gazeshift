@@ -53,6 +53,7 @@ class OnnxWarper:
                                "For NVIDIA, update your driver and use Start Gazeshift NVIDIA GPU.bat. "
                                "Otherwise select CPU or Automatic in Processing.")
         self.session.disable_fallback()
+        self.provider_options = provider_options
         self.provider, self.threads, self.calls = provider, threads, 0
         expected = {f"{kind}_{side}": shape for side in ("l", "r") for kind, shape in
                     (("img", [1, 48, 64, 3]), ("fp", [1, 48, 64, 12]), ("ang", [1, 2]))}

@@ -58,7 +58,8 @@ def benchmark(provider, threads=None):
         samples.append((time.perf_counter_ns() - start) / 1e6)
     return engine, dict(median_ms=float(np.median(samples)), p95_ms=float(np.percentile(samples, 95)),
                        max_ms=max(samples), providers=engine.session.get_providers(),
-                       threads=engine.threads, provider_options=engine.session.get_provider_options())
+                       threads=engine.threads, provider_options=engine.session.get_provider_options(),
+                       configured_provider_options=engine.provider_options)
 
 
 def main(argv=None):
@@ -91,7 +92,7 @@ def main(argv=None):
         options.enable_profiling = True
         options.profile_file_prefix = str(profile_dir / args.provider)
         session = ort.InferenceSession(str(ROOT / "weights/flx_12.onnx"), sess_options=options,
-                                       providers=[(PROVIDERS[args.provider], engine.session.get_provider_options()[PROVIDERS[args.provider]])])
+                                       providers=[(PROVIDERS[args.provider], engine.provider_options)])
         if PROVIDERS[args.provider] not in session.get_providers():
             raise RuntimeError("Profiling session fell back to CPU")
         session.disable_fallback()

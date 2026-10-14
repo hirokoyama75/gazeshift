@@ -30,10 +30,10 @@ REQUIRED = {
            "test_mac_camera_names_match_opencv_indices", "test_avfoundation_capture_and_cleanup",
            "test_provider_benchmark_reference_and_failure_report", "test_frozen_mac_cache_outside_bundle",
            "test_frozen_missing_face_model_never_downloads", "test_mac_builder_platform_and_model_integrity",
-           "test_bundle_failure_writes_report_without_camera"],
+           "test_bundle_failure_writes_report_without_camera", "test_idle_probe_measures_and_closes_own_process"],
     "m3": ["test_independent_two_look_recovery", "test_failures_preserve_config_bytes", "test_three_degree_wrapped_boundary_and_secondary_monitor", "test_screen_relative_pose_cone"],
 }
-MIN_COUNTS = {"m0": 4, "m1": 6, "m2": 26, "m3": 24}
+MIN_COUNTS = {"m0": 4, "m1": 6, "m2": 27, "m3": 24}
 MANUAL = ["Windows and macOS physical camera / OBS selection", "720p sustained >=30 fps",
           "capture-to-output p95 <33 ms", "visual eye / blink / seam quality", "real-subject Calibration accuracy", "RSS after 60 seconds"]
 
@@ -215,7 +215,7 @@ def main(argv=None):
             stage = milestone
             junit = directory / f"{milestone}.xml"
             command = [sys.executable, "-m", "pytest", f"tests/headless/test_{milestone}.py", "-q", "--basetemp", str(directory / f"tmp_{milestone}"), "--junitxml", str(junit)]
-            if milestone == "m2": command.extend(["tests/headless/test_desktop.py", "tests/headless/test_providers.py", "tests/headless/test_packaging.py"])
+            if milestone == "m2": command.extend(["tests/headless/test_desktop.py", "tests/headless/test_providers.py", "tests/headless/test_packaging.py", "tests/headless/test_idle_probe.py"])
             child_error = None
             try:
                 report["stages"][stage] = run_child(command, stage, deadline, directory, env)

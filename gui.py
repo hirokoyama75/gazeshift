@@ -246,7 +246,7 @@ class Desktop:
         self.save()
         self.failed = False
         self.status.set("Starting…")
-        self.detail.set("Preparing the camera. The face model downloads on first use.")
+        self.detail.set("Preparing the camera and eye correction.")
         self.notice.configure(fg=self.palette["muted"])
         self.worker = DesktopWorker(settings, self.config_path)
         self.worker.commands.put(("enabled", self.enabled.get()))

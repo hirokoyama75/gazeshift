@@ -8,6 +8,8 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -18,6 +20,38 @@ MODELS = {
     "face_landmarker.task": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
 }
 FACE_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+
+
+def check_idle(executable, output):
+    """Measure the normal packaged interface with its camera left off."""
+    def sample(pid):
+        value = subprocess.check_output(["ps", "-p", str(pid), "-o", "time=,rss="], text=True).split()
+        seconds = sum(float(part)*60**i for i, part in enumerate(reversed(value[0].split(":"))))
+        return seconds, int(value[1])/1024
+    with tempfile.TemporaryDirectory(dir=output, prefix=".idle-") as directory, (output / "idle.log").open("w") as log:
+        process = subprocess.Popen([str(executable), "--settings", str(Path(directory)/"desktop.json"),
+                                    "--config", str(Path(directory)/"config.json")], cwd="/", stdout=log, stderr=log)
+        try:
+            time.sleep(10)
+            if process.poll() is not None:
+                raise RuntimeError("The normal packaged interface did not stay open; see idle.log")
+            cpu, _ = sample(process.pid)
+            started = time.monotonic()
+            time.sleep(5)
+            final_cpu, rss = sample(process.pid)
+            wall = time.monotonic() - started
+            (output / "idle.json").write_text(json.dumps({
+                "status": "PASS", "camera": "off", "warmup_seconds":10,
+                "sample_seconds":wall, "cpu_percent_of_one_core":100*(final_cpu-cpu)/wall,
+                "rss_mib":rss, "scope":"Idle interface only; live camera resource use remains unverified",
+            }, indent=2))
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
 
 
 def prepare_assets():
@@ -70,6 +104,7 @@ def main(argv=None):
         raise ValueError(f"Unexpected executable architecture: {architectures}")
     subprocess.run([str(executable), "--self-test", "--report", str(output / "smoke.json")],
                    cwd="/", check=True, timeout=180)
+    check_idle(executable, output)
     subprocess.run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", str(app),
                     str(output / "Gazeshift-macOS-arm64.zip")], check=True)
     # Include the corresponding tracked source alongside this development build.
