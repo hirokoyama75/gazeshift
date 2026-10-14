@@ -16,30 +16,31 @@ This rebuilds [WangWilly's gaze-correction-cam](https://github.com/WangWilly/gaz
 
 Targets Windows 11 x64 and macOS 14+ on Apple Silicon. Use Python 3.12 through **uv**; Intel Macs and Windows ARM64 are unsupported.
 
+On Windows, double-click **Start Gazeshift.bat** (uv must be installed). Or launch the desktop interface with:
+
 ```powershell
-uv sync
-uv run --exact app.py --provider cpu
+uv run --exact --extra virtualcam gui.py
 ```
 
-The eye model is included; the face-tracking model downloads on first launch. Options include `--camera 1`, `--mirror-preview`, and `--no-preview`. Settings live in `~/.gaze_cam/config.json`; `--config` chooses another file.
+Choose your camera, then press **Start camera**. Use the **Correction** tab for strength, aim adjustments and calibration. **Show original** compares the untouched picture without changing the call feed. Your controls are saved automatically; the camera stays off until you start it.
+
+Strength runs from 0–150%: up to 100% fades the correction; above 100% requests a larger shift within the same ±15° limits. This does not lock your gaze. Blinks and head-turn fades remain active.
+
+The eye model is included; the face-tracking model downloads on first use. Camera calibration lives in `~/.gaze_cam/config.json`, and desktop preferences in `~/.gaze_cam/desktop.json`.
 
 For an AMD or Intel GPU on Windows, try DirectML:
 
 ```powershell
-uv run --exact --no-group cpu --extra dml app.py --provider dml
+uv run --exact --no-group cpu --extra dml --extra virtualcam gui.py
 ```
 
-For NVIDIA CUDA, replace `dml` with `cuda` in both places. Use uv's matching selectors so only one ONNX Runtime package is installed.
+Use `--extra cuda` instead of `--extra dml` for NVIDIA CUDA. Choose the installed GPU option under **Call output & setup**.
 
-For video calls, install OBS and run:
+For video calls, install OBS and enable **Send video to call apps** before starting the camera. Choose **OBS Virtual Camera** in your call app; leave OBS's own output stopped. Close OBS if it holds your webcam. On macOS, first start and stop OBS's Virtual Camera once to approve its camera extension.
 
-```powershell
-uv run --exact --extra virtualcam app.py --virtual-cam
-```
+## Command-line option
 
-Choose **OBS Virtual Camera** in your call app. On macOS, first start and stop OBS's Virtual Camera once to approve its camera extension.
-
-## Controls
+The original CLI remains available: `uv run --exact app.py --provider cpu`. Add `--extra virtualcam` before `app.py` and `--virtual-cam` after it for call output. Its preview shortcuts are:
 
 - **Space:** calibrate by looking at the lens, then the on-screen crosshair. **Escape** cancels.
 - **g:** toggle correction. **q:** quit.
@@ -55,12 +56,12 @@ uv run --exact --group dev python scripts/verify_headless.py --all --timeout-sec
 
 This rebuilds the model from the included original checkpoints and compares it against TensorFlow in a separate environment. It also tests the video pipeline and calibration without opening a camera or window. Datasets, recordings, reports and local environments stay out of Git.
 
-On October 14, 2026, **44/44 tests passed**, with no skips. Both-eye CPU inference measured **7.22 ms p95** on a Ryzen 5 3600, below the **9 ms** gate (50 warmups, 500 timed runs). Production does not pin CPU affinity.
+On October 14, 2026, **49/49 headless tests passed**, with no skips or expected failures. Both-eye CPU inference measured **7.74 ms p95** on a Ryzen 5 3600, below the **9 ms** gate (50 warmups, 500 timed runs). A separate real-window test covers desktop controls and calibration placement without opening a camera. Production does not pin CPU affinity.
 
 Live Windows/Mac camera and OBS checks, sustained 30 fps, capture-to-output latency, visual quality, real-person calibration and memory usage remain **manual_pending**.
 
 ## Credits and license
 
-Original code and checkpoints: **Chih-Fan Hsu, 2019**, under [LICENSE](LICENSE). Source and asset hashes are in `scripts/source_manifest.json`. Older modules remain for reference; run `app.py`.
+Original code and checkpoints: **Chih-Fan Hsu, 2019**, under [LICENSE](LICENSE). Source and asset hashes are in `scripts/source_manifest.json`. Older modules remain for reference; use `gui.py` or `app.py`.
 
 Downloaded DIRL data stays local with the [publisher's notice](https://sites.google.com/site/chihfanhsuwebsite/dataset). Optional virtual-camera support uses GPL-2.0 `pyvirtualcam` and is excluded from the default install.

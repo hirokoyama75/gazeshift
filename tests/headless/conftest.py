@@ -33,6 +33,8 @@ def guard_hardware(monkeypatch):
     monkeypatch.setattr(io, "discover_virtual_camera", forbidden)
     import utils.monitors
     monkeypatch.setattr(utils.monitors, "get_monitors", forbidden)
+    import utils.cameras
+    monkeypatch.setattr(utils.cameras, "list_cameras", forbidden)
 
 
 @pytest.fixture

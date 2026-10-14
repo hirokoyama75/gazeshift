@@ -1,21 +1,39 @@
 """The same real engine/compositor path is used by CLI and injected replay."""
+from dataclasses import dataclass
 import numpy as np
 from engine.compositor import EyeCrop, compose
 from engine.geometry import gaze_offset, rotate_offset, pose_strength
 
 
+@dataclass(frozen=True)
+class Correction:
+    amount: float = 1.0
+    horizontal: float = 0.0
+    vertical: float = 0.0
+
+    def __post_init__(self):
+        if not np.all(np.isfinite([self.amount, self.horizontal, self.vertical])):
+            raise ValueError("Correction controls must be finite")
+        if not 0 <= self.amount <= 1.5 or max(abs(self.horizontal), abs(self.vertical)) > 10:
+            raise ValueError("Correction amount must be 0–150%; aim must be within ±10 degrees")
+
+
 class Pipeline:
-    def __init__(self, engine, geometry):
+    def __init__(self, engine, geometry, correction=None):
         self.engine, self.geometry = engine, geometry
+        self.correction = correction or Correction()
         self.enabled = True
 
     def process(self, frame, tracked):
         if tracked is None or not self.enabled:
             return frame
         angle, eye = gaze_offset(tracked.centers, frame.shape[1::-1], self.geometry)
-        strength = tracked.blink * pose_strength(tracked.facing, eye)
+        controls = self.correction
+        strength = tracked.blink * pose_strength(tracked.facing, eye) * min(1., controls.amount)
         if strength == 0:
             return frame
+        # Above 100%, boost the requested angle, never the compositor opacity.
+        angle = (angle + [controls.vertical, controls.horizontal]) * max(1., controls.amount)
         redirection = np.clip(rotate_offset(angle, tracked.pose[2]), -15, 15).astype(np.float32)[None]
         crops, inputs = {}, {}
         for side, points in zip(("l", "r"), tracked.anchors):

@@ -1,0 +1,74 @@
+"""Real Tk widget smoke test; explicit opt-in, no camera or virtual output."""
+import queue
+import tkinter as tk
+import numpy as np
+import gui
+from utils.desktop import load_settings
+from utils.monitors import Monitor
+
+
+def test_desktop_window_controls_and_lifecycle(tmp_path,monkeypatch):
+    workers=[]
+    class Worker:
+        def __init__(self,settings,path):
+            self.settings=settings
+            self.events,self.frames,self.commands=queue.Queue(),queue.Queue(),queue.Queue()
+            workers.append(self)
+        def start(self):self.events.put(('started',False))
+        def stop(self):self.events.put(('stopped',None))
+    real_window=tk.Toplevel
+    class HiddenWindow(real_window):
+        def __init__(self,*args,**kwargs):
+            super().__init__(*args,**kwargs)
+            self.attributes('-alpha',0)
+        def focus_force(self):pass
+    monkeypatch.setattr(gui,'DesktopWorker',Worker)
+    monkeypatch.setattr(gui,'list_cameras',lambda:[(0,'Logi C270'),(2,'Other camera')])
+    monkeypatch.setattr(gui,'get_monitors',lambda:[Monitor(-1280,0,1280,720)])
+    monkeypatch.setattr(gui.tk,'Toplevel',HiddenWindow)
+    root=tk.Tk();root.withdraw();root.attributes('-alpha',0)
+    app=None
+    try:
+        app=gui.Desktop(root,tmp_path/'desktop.json',tmp_path/'config.json')
+        root.deiconify();root.update()
+        assert app.worker is None and app.camera.get()=='0: Logi C270'
+        for size in ('1160x780','980x720'):
+            root.geometry(size);root.update()
+            assert app.calibrate_button.winfo_rooty()+app.calibrate_button.winfo_height()<root.winfo_rooty()+root.winfo_height()
+        def poll():
+            root.after_cancel(app.poll_job)
+            app.poll()
+            root.update_idletasks()
+        app.start_button.invoke();poll()
+        worker=workers[0]
+        assert app.worker is worker and app.status.get()=='Camera running'
+        assert app.camera_menu.instate(['disabled'])
+        app.amount.set(150);app.controls_changed()
+        assert list(worker.commands.queue)[-1][1].amount==1.5
+        app.reset()
+        assert app.amount.get()==100
+        raw=np.full((2,4,3),10,np.uint8)
+        corrected=np.full((2,4,3),200,np.uint8)
+        app.original.set(True);app.show_frame((raw,corrected,True,30.,0,0))
+        assert app.photo.get(0,0)==(10,10,10)
+        app.original.set(False);app.show_frame((raw,corrected,True,30.,0,0))
+        assert app.photo.get(0,0)==(200,200,200)
+        worker.events.put(('calibration',('lens','Look at the lens')));poll()
+        assert app.calibration_window.winfo_rootx()==-1280
+        worker.events.put(('calibration',('screen','Look at the crosshair')));poll()
+        canvas=app.calibration_canvas
+        lines=[canvas.coords(item) for item in canvas.find_all() if canvas.type(item)=='line']
+        assert lines==[[620.,360.,660.,360.],[640.,340.,640.,380.]]
+        app.cancel_calibration()
+        assert app.calibration_window is None and list(worker.commands.queue)[-1]==('cancel',None)
+        app.start_button.invoke();poll()
+        assert app.worker is None and app.preview.cget('image')==''
+        assert app.camera_menu.instate(['readonly'])
+        app.save()
+        assert load_settings(tmp_path/'desktop.json').correction.amount==1.
+    finally:
+        if app:
+            app.hide_calibration()
+            if app.save_job:root.after_cancel(app.save_job)
+            root.after_cancel(app.poll_job)
+        root.destroy()
