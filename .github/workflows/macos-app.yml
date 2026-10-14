@@ -8,7 +8,7 @@ permissions:
   contents: read
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-14
     timeout-minutes: 25
     env:
       UV_PROJECT_ENVIRONMENT: .cache/mac-build-env

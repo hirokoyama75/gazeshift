@@ -87,7 +87,7 @@ uv run --exact --group dev python scripts/verify_headless.py --all --timeout-sec
 
 This rebuilds the model from the included original checkpoints and compares it against TensorFlow in a separate environment. It also tests the video pipeline and calibration without opening a camera or window. Datasets, recordings, reports and local environments stay out of Git.
 
-On October 14, 2026, **60/60 headless tests passed**, with no skips or expected failures, including platform/backend and packaging checks. The separate real-window test also passed, covering desktop controls, theme switching, calibration placement, automatic backend labels, preview image reuse and minimized rendering without opening a camera. The CPU gate remains **9 ms p95** (50 warmups, 500 timed runs); the latest full verifier measured **7.20 ms p95** on a Ryzen 5 3600. Production does not pin CPU affinity.
+On October 14, 2026, **61/61 headless tests passed**, with no skips or expected failures, including platform/backend and packaging checks. The separate real-window test also passed, covering desktop controls, theme switching, calibration placement, automatic backend labels, preview image reuse and minimized rendering without opening a camera. The CPU gate remains **9 ms p95** (50 warmups, 500 timed runs). Production does not pin CPU affinity.
 
 Live Windows/Mac camera and OBS checks, sustained 30 fps, capture-to-output latency, visual quality, real-person calibration and memory usage remain **manual_pending**. The Mac and NVIDIA additions have simulated platform regression checks; those do not establish hardware performance or live acceptance.
 
